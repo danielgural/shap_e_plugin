@@ -1,0 +1,11 @@
+name: "@danielgural/shape_e_plugin"
+description: Shap_e Plugin
+version: 1.0.0
+fiftyone:
+  version: "*"
+url: https://github.com/danielgural/shap_e_plugin/blob/main/README.md
+license: Apache 2.0
+operators:
+  - ImageTo3D
+  - TextTo3D
+
