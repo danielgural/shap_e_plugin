@@ -43,10 +43,16 @@ class ImageTo3D(foo.Operator):
         return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
+        if "shap_e"  in fo.list_datasets():
+            dataset = fo.load_dataset("shap_e")
+        else:
+            dataset = fo.Dataset("shap_e")
+            dataset.add_group_field("group", default="Input")
+            dataset.persistent = True
         import_type = ctx.params.get("import_type", None)
 
 
-        _image_to_3d(ctx)
+        _image_to_3d(ctx,dataset)
          
 
 class TextTo3D(foo.Operator):
@@ -76,41 +82,34 @@ class TextTo3D(foo.Operator):
         return ctx.params.get("delegate", False)
 
     def execute(self, ctx):
+        if "shap_e"  in fo.list_datasets():
+            dataset = fo.load_dataset("shap_e")
+        else:
+            dataset = fo.Dataset("shap_e")
+            dataset.add_group_field("group", default="Input")
+            dataset.persistent = True
         import_type = ctx.params.get("import_type", None)
 
 
-        _text_to_3d(ctx)
+        _text_to_3d(ctx,dataset)
 
 def check_shap_e(ctx, inputs):
-    if os.path.exists("shap_e"):
-        inputs.view(
-            "notice",
-            types.Notice(
-                label=(
-                    "Do not forget to \"pip intall -e .\" in your ./shap_e directory before running " 
-                )
-            ),
-        )
-    else:
-        models_dir = os.path.expanduser("~/fiftyone/__models__")
-        shap_e_dir = os.path.join(models_dir, "shap_e")
+    if not os.path.exists("./shap-e"):
+        # Clone the shap_e repository
+        try:
+            subprocess.run(["git", "clone", "https://github.com/openai/shap-e.git"], check=True)
+            print("shap_e cloned successfully.")
+        except subprocess.CalledProcessError as e:
+            print("Error:", e)
 
-        if not os.path.exists(shap_e_dir):
-            # Clone the shap_e repository
-            try:
-                subprocess.run(["git", "clone", "https://github.com/openai/shap-e.git", shap_e_dir], check=True)
-                print("shap_e cloned successfully.")
-            except subprocess.CalledProcessError as e:
-                print("Error:", e)
-        else:
-            inputs.view(
+    inputs.view(
             "notice",
             types.Notice(
                 label=(
-                    "Do not forget to \"pip intall -e .\" in your ~/fiftyone/__models__/shap_e directory before running!" 
+                    "Do not forget to \"pip intall -e .\" in your ./shap_e directory before running!" 
                 )
-            ),
-        )
+            )
+    )
 
     return True
 
@@ -234,7 +233,7 @@ def _upload_media_bytes(ctx):
     fos.write_file(content, outpath)
     return outpath
 
-def _text_to_3d(ctx):
+def _text_to_3d(ctx,dataset):
     prompt = ctx.params.get("prompt", None)
     tags = ctx.params.get("tags", None)
 
@@ -262,8 +261,10 @@ def _text_to_3d(ctx):
 
     sample = fo.Sample(filepath=filepath, tags=tags, group=group.element("Input"))
     samples.append(sample)
-    if not os.path.exists("shap_e"):
-        sys.path.append("~/fiftyone/__models__")
+
+
+    sys.path.append(os.path.abspath("./shap-e"))
+
 
     from shap_e.diffusion.sample import sample_latents
     from shap_e.diffusion.gaussian_diffusion import diffusion_from_config
@@ -313,11 +314,11 @@ def _text_to_3d(ctx):
     
     sample = fo.Sample(scene_path, group=group.element("Shap-e Mesh"))
     samples.append(sample)
-    ctx.dataset.add_samples(samples)
+    dataset.add_samples(samples)
 
     return
 
-def _image_to_3d(ctx):
+def _image_to_3d(ctx,dataset):
     style = ctx.params.get("style", None)
     tags = ctx.params.get("tags", None)
 
@@ -328,8 +329,8 @@ def _image_to_3d(ctx):
 
     sample = fo.Sample(filepath=filepath, tags=tags, group=group.element("Input"))
     samples.append(sample)
-    if not os.path.exists("shap_e"):
-        sys.path.append("~/fiftyone/__models__")
+    sys.path.append(os.path.abspath("./shap-e"))
+
 
     from shap_e.diffusion.sample import sample_latents
     from shap_e.diffusion.gaussian_diffusion import diffusion_from_config
@@ -384,7 +385,7 @@ def _image_to_3d(ctx):
     
     sample = fo.Sample(scene_path, group=group.element("Shap-e Mesh"))
     samples.append(sample)
-    ctx.dataset.add_samples(samples)
+    dataset.add_samples(samples)
 
     return
 
